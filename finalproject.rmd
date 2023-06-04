@@ -1,0 +1,264 @@
+---
+title: "finalprojectmigration"
+author: "Layan & Haifa"
+date: "2023-05-23"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readr)
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+economic_growth <- read_csv("data/economicGrowth.csv")
+migration <- read_csv("data/migration.csv")
+inflation <- read_csv("data/inflation.csv")
+gross_capital_formation <- read_csv("data/grossCapitalFormation.csv")
+unemployment <- read_csv("data/unemployment.csv")
+remittance_inflow <- read_csv("data/remittance_inflow.csv")
+```
+
+```{r}
+library(skimr)
+qq <-skim_to_wide(inflation)
+qq
+```
+
+```{r}
+# Select the columns representing years starting from 2000 to 2021
+economic_growth <- select(economic_growth, Country_Name, `2000`:`2021`)
+migration <- select(migration, Country_Name, `2000`:`2021`)
+inflation <- select(inflation, Country_Name, `2000`:`2021`)
+gross_capital_formation <- select(gross_capital_formation, Country_Name, `2000`:`2021`)
+unemployment <- select(unemployment, Country_Name, `2000`:`2021`)
+
+economic_growth1 <- pivot_longer(economic_growth, cols="2000":"2021",
+                                 names_to = "year",
+                                 values_to = "eco_growth")
+
+migration1 <- pivot_longer(migration, cols="2000":"2021",
+                                 names_to = "year",
+                                 values_to = "migration")
+
+inflation1 <- pivot_longer(inflation, cols="2000":"2021",
+                                 names_to = "year",
+                                 values_to = "inflation")
+
+gross_capital_formation1 <- pivot_longer(gross_capital_formation, cols="2000":"2021",
+                                 names_to = "year",
+                                 values_to = "GC_formation")
+
+unemployment1 <- pivot_longer(unemployment, cols="2000":"2021",
+                                 names_to = "year",
+                                 values_to = "unemployment")
+
+remittance_inflow1 <- pivot_longer(unemployment, cols="2000":"2021",
+                                 names_to = "year",
+                                 values_to = "remittance_inflow")
+```
+
+
+```{r}
+# Merge the datasets based on the common identifier (Country_Name and year)
+merged_data <- merge(economic_growth1, migration1, by = c("Country_Name", "year"), all = TRUE)
+merged_data <- merge(merged_data, inflation1, by = c("Country_Name", "year"), all = TRUE)
+merged_data <- merge(merged_data, gross_capital_formation1, by = c("Country_Name", "year"), all = TRUE)
+merged_data <- merge(merged_data, unemployment1, by = c("Country_Name", "year"), all = TRUE)
+merged_data <- merge(merged_data, remittance_inflow1, by = c("Country_Name", "year"), all = TRUE)
+
+# View the merged dataset
+head(merged_data)
+```
+
+```{r}
+# Remove rows that has N/A values
+merged_data <- merged_data %>% filter(complete.cases(.))
+merged_data
+```
+
+
+```{r}
+library(caret)
+library(RANN)
+
+# Create the knn imputation model on the training data
+preProcess_missingdata_model <- preProcess(merged_data, method = 'knnImpute')
+preProcess_missingdata_model
+
+# Check if any predictors have all missing values
+all_missing_columns <- colnames(merged_data)[apply(is.na(merged_data), 2, all)]
+
+# Remove columns with all missing values from the new data point
+newdata <- merged_data[, !colnames(merged_data) %in% all_missing_columns]
+
+# Use the imputation model to predict the values of missing data points if there are any predictors with missing values
+if (length(all_missing_columns) > 0) {
+  filledData <- predict(preProcess_missingdata_model, newdata = newdata)
+  
+  # Fill missing values for columns with all missing values
+filledData_all_missing <- merged_data[, colnames(merged_data) %in% all_missing_columns]
+  filledData <- cbind(filledData, filledData_all_missing)
+} else {
+  filledData <- newdata
+}
+
+# Check if there are any remaining missing values in the imputed data
+anyNA(filledData)
+```
+```{r}
+# To download the dataset to the project zipfile
+#write.table(merged_data, 
+         #   file = "\Users\layan\Downloads\Project 3 (1)\Project\data",row.names=F,
+         #   sep = " , ")
+```
+- How does migration affect remittance inflows? Is there a significant correlation between the number of migrants and the amount of remittances received?
+```{r}
+data <- merged_data %>% filter(complete.cases(.))
+merged_data
+
+# Explore the data
+head(data)  # Display the first few rows of the data
+summary(data)  # Get summary statistics of the variables
+
+# Perform linear regression
+model <- lm(remittance_inflow ~ migration, data = data)
+
+# Print the regression summary
+summary(model)
+
+# Visualize the relationship between migration and remittance inflows using a scatter plot
+ggplot(data, aes(x = migration, y = remittance_inflow)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(x = "Migration", y = "Remittance Inflow") +
+  ggtitle("Relationship between Migration and Remittance Inflows")
+
+```
+- What is the impact of inflation on remittance inflows? Do higher inflation rates lead to changes in the remittance inflow patterns, and if yes, how do they affect the overall amount?
+```{r}
+data <- merged_data %>% filter(complete.cases(.))
+merged_data
+
+# Explore the data
+head(data)  # Display the first few rows of the data
+summary(data)  # Get summary statistics of the variables
+
+# Calculate the correlation coefficient between inflation and remittance inflows
+correlation <- cor(data$inflation, data$remittance_inflow)
+
+# Print the correlation coefficient
+cat("Correlation Coefficient:", correlation, "\n")
+
+# Visualize the relationship between inflation and remittance inflows using a scatter plot
+ggplot(data, aes(x = inflation, y = remittance_inflow)) +
+  geom_point() +
+  labs(x = "Inflation", y = "Remittance Inflow") +
+  ggtitle("Relationship between Inflation and Remittance Inflows")
+
+```
+
+- Is there a connection between unemployment rates and remittance inflows? Do higher levels of unemployment lead to an increase or decrease in remittance flows?
+```{r}
+data <- merged_data %>% filter(complete.cases(.))
+merged_data
+
+# Explore the data
+head(data)  # Display the first few rows of the data
+summary(data)  # Get summary statistics of the variables
+
+# Calculate the correlation coefficient between unemployment and remittance inflows
+correlation <- cor(data$unemployment, data$remittance_inflow)
+
+# Print the correlation coefficient
+cat("Correlation Coefficient:", correlation, "\n")
+
+# Visualize the relationship between unemployment and remittance inflows using a scatter plot
+ggplot(data, aes(x = unemployment, y = remittance_inflow)) +
+  geom_point() +
+  labs(x = "Unemployment", y = "Remittance Inflow") +
+  ggtitle("Relationship between Unemployment and Remittance Inflows")
+
+
+```
+- Are there any significant differences in remittance inflows among countries or regions? Can we compare and contrast the remittance patterns of different countries based on the variables mentioned?
+```{r}
+data <- merged_data %>% filter(complete.cases(.))
+merged_data
+
+# Explore the data
+head(data)  # Display the first few rows of the data
+summary(data)  # Get summary statistics of the variables
+
+# Generate a box plot to compare remittance inflows among countries or regions
+ggplot(data, aes(x = Country_Name, y = remittance_inflow)) +
+  geom_boxplot() +
+  labs(x = "Country or Region", y = "Remittance Inflow") +
+  ggtitle("Comparison of Remittance Inflows by Country or Region")
+```
+
+```{r}
+# Load required packages
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+data <- merged_data %>% filter(complete.cases(.))
+merged_data
+
+# Pivot the data to wide format for heatmap visualization
+heatmap_data <- data %>%
+  select(Country_Name, remittance_inflow) %>%
+  pivot_wider(names_from = Country_Name, values_from = remittance_inflow)
+
+# Scale only numeric columns
+heatmap_data_scaled <- heatmap_data %>%
+  mutate(across(where(is.numeric), scale))
+
+# Generate the heatmap
+ggplot(heatmap_data_scaled, aes(x = Country_Name, y = 1, fill = remittance_inflow)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, limits = c(-1, 1)) +
+  labs(x = "Country or Region", y = "", title = "Remittance Inflows by Country or Region") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank())
+```
+How do remittance inflows vary across different countries? 
+
+```{r}
+# Load required packages
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# Pivot the data to wide format for heatmap visualization
+heatmap_data <- merged_data %>%
+  select(Country_Name, remittance_inflow) %>%
+  pivot_wider(names_from = Country_Name, values_from = remittance_inflow)
+
+# Scale only numeric columns
+heatmap_data_scaled <- heatmap_data %>%
+  mutate(across(where(is.numeric), scale))
+
+# Generate the heatmap
+ggplot(heatmap_data_scaled, aes(x = Country_Name, y = 1, fill = remittance_inflow)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, limits = c(-1, 1)) +
+  labs(x = "Country_Name", y = "", title = "Remittance Inflows by Country or Region") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank())
+
+```
+
