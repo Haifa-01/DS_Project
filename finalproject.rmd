@@ -30,7 +30,6 @@ remittance_inflow <- read_csv("data/remittance_inflow.csv")
 ```{r}
 library(skimr)
 qq <-skim_to_wide(inflation)
-qq
 ```
 
 ```{r}
@@ -114,36 +113,52 @@ filledData_all_missing <- merged_data[, colnames(merged_data) %in% all_missing_c
 # Check if there are any remaining missing values in the imputed data
 anyNA(filledData)
 ```
+
 ```{r}
-# To download the dataset to the project zipfile
-#write.table(merged_data, 
-         #   file = "\Users\layan\Downloads\Project 3 (1)\Project\data",row.names=F,
-         #   sep = " , ")
-```
-- How does migration affect remittance inflows? Is there a significant correlation between the number of migrants and the amount of remittances received?
-```{r}
-data <- merged_data %>% filter(complete.cases(.))
-merged_data
+library(reshape2)
+library(ggplot2)
 
-# Explore the data
-head(data)  # Display the first few rows of the data
-summary(data)  # Get summary statistics of the variables
+# Create correlation matrix
+correlation_matrix <- cor(filledData[, c("eco_growth", "migration", "inflation", "GC_formation", "unemployment", "remittance_inflow")])
 
-# Perform linear regression
-model <- lm(remittance_inflow ~ migration, data = data)
+# Convert correlation matrix to long format
+melted_cormat <- melt(correlation_matrix, na.rm = TRUE)
 
-# Print the regression summary
-summary(model)
-
-# Visualize the relationship between migration and remittance inflows using a scatter plot
-ggplot(data, aes(x = migration, y = remittance_inflow)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  labs(x = "Migration", y = "Remittance Inflow") +
-  ggtitle("Relationship between Migration and Remittance Inflows")
+# Create correlation heatmap
+ggplot(data = melted_cormat, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  geom_text(aes(label = round(value, 2)), size = 3) +
+  scale_fill_gradient2(low = "blue", high = "red", limit = c(-1, 1), name = "Correlation") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.background = element_blank(),
+        axis.text.x = element_text(angle = 90, hjust = 1))
 
 ```
+
+```{r}
+# Select the variables you want to include in the box plot
+variables <- c("eco_growth", "inflation", "GC_formation", "unemployment", "remittance_inflow")
+
+# Create a new data frame with the selected variables
+boxplot_data <- filledData[, variables]
+
+# Reshape the data frame into long format
+melted_data <- melt(boxplot_data)
+
+# Create the box plot
+ggplot(data = melted_data, aes(x = variable, y = value)) +
+  geom_boxplot() +
+  labs(title = "Box Plot of Variables",
+       x = "Variable",
+       y = "Value") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  coord_cartesian(ylim = quantile(melted_data$value, c(0.05, 0.95)))
+```
+
+
 - What is the impact of inflation on remittance inflows? Do higher inflation rates lead to changes in the remittance inflow patterns, and if yes, how do they affect the overall amount?
+
 ```{r}
 data <- merged_data %>% filter(complete.cases(.))
 merged_data
@@ -205,60 +220,4 @@ ggplot(data, aes(x = Country_Name, y = remittance_inflow)) +
   ggtitle("Comparison of Remittance Inflows by Country or Region")
 ```
 
-```{r}
-# Load required packages
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-
-data <- merged_data %>% filter(complete.cases(.))
-merged_data
-
-# Pivot the data to wide format for heatmap visualization
-heatmap_data <- data %>%
-  select(Country_Name, remittance_inflow) %>%
-  pivot_wider(names_from = Country_Name, values_from = remittance_inflow)
-
-# Scale only numeric columns
-heatmap_data_scaled <- heatmap_data %>%
-  mutate(across(where(is.numeric), scale))
-
-# Generate the heatmap
-ggplot(heatmap_data_scaled, aes(x = Country_Name, y = 1, fill = remittance_inflow)) +
-  geom_tile() +
-  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, limits = c(-1, 1)) +
-  labs(x = "Country or Region", y = "", title = "Remittance Inflows by Country or Region") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        axis.ticks.y = element_blank(),
-        axis.title.y = element_blank(),
-        panel.grid = element_blank())
-```
-How do remittance inflows vary across different countries? 
-
-```{r}
-# Load required packages
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-
-# Pivot the data to wide format for heatmap visualization
-heatmap_data <- merged_data %>%
-  select(Country_Name, remittance_inflow) %>%
-  pivot_wider(names_from = Country_Name, values_from = remittance_inflow)
-
-# Scale only numeric columns
-heatmap_data_scaled <- heatmap_data %>%
-  mutate(across(where(is.numeric), scale))
-
-# Generate the heatmap
-ggplot(heatmap_data_scaled, aes(x = Country_Name, y = 1, fill = remittance_inflow)) +
-  geom_tile() +
-  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, limits = c(-1, 1)) +
-  labs(x = "Country_Name", y = "", title = "Remittance Inflows by Country or Region") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        axis.ticks.y = element_blank(),
-        axis.title.y = element_blank(),
-        panel.grid = element_blank())
-
-```
 
