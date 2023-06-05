@@ -114,6 +114,7 @@ filledData_all_missing <- merged_data[, colnames(merged_data) %in% all_missing_c
 anyNA(filledData)
 ```
 
+What is the correlation among the variables (economic growth, migration, inflation, gross capital formation, unemployment, and remittance inflow) in the dataset?
 ```{r}
 library(reshape2)
 library(ggplot2)
@@ -136,6 +137,7 @@ ggplot(data = melted_cormat, aes(x = Var1, y = Var2, fill = value)) +
 
 ```
 
+How do the selected variables (economic growth, inflation, gross capital formation, unemployment, and remittance inflow) vary in terms of their distribution?
 ```{r}
 # Select the variables you want to include in the box plot
 variables <- c("eco_growth", "inflation", "GC_formation", "unemployment", "remittance_inflow")
@@ -156,68 +158,66 @@ ggplot(data = melted_data, aes(x = variable, y = value)) +
   coord_cartesian(ylim = quantile(melted_data$value, c(0.05, 0.95)))
 ```
 
-
-- What is the impact of inflation on remittance inflows? Do higher inflation rates lead to changes in the remittance inflow patterns, and if yes, how do they affect the overall amount?
-
+How does remittance inflow relate to migration, unemployment, gross capital formation, and economic growth?
 ```{r}
-data <- merged_data %>% filter(complete.cases(.))
-merged_data
+library(ggplot2)
+library(gridExtra)
 
-# Explore the data
-head(data)  # Display the first few rows of the data
-summary(data)  # Get summary statistics of the variables
-
-# Calculate the correlation coefficient between inflation and remittance inflows
-correlation <- cor(data$inflation, data$remittance_inflow)
-
-# Print the correlation coefficient
-cat("Correlation Coefficient:", correlation, "\n")
-
-# Visualize the relationship between inflation and remittance inflows using a scatter plot
-ggplot(data, aes(x = inflation, y = remittance_inflow)) +
+# Scatter plot comparing remittance inflow with migration
+plot1 <- ggplot(data = merged_data, aes(x = remittance_inflow, y = migration)) +
   geom_point() +
-  labs(x = "Inflation", y = "Remittance Inflow") +
-  ggtitle("Relationship between Inflation and Remittance Inflows")
+  labs(x = "Migration", y = "Remittance Inflow") +
+  ggtitle("Remittance Inflow vs. Migration")
 
-```
-
-- Is there a connection between unemployment rates and remittance inflows? Do higher levels of unemployment lead to an increase or decrease in remittance flows?
-```{r}
-data <- merged_data %>% filter(complete.cases(.))
-merged_data
-
-# Explore the data
-head(data)  # Display the first few rows of the data
-summary(data)  # Get summary statistics of the variables
-
-# Calculate the correlation coefficient between unemployment and remittance inflows
-correlation <- cor(data$unemployment, data$remittance_inflow)
-
-# Print the correlation coefficient
-cat("Correlation Coefficient:", correlation, "\n")
-
-# Visualize the relationship between unemployment and remittance inflows using a scatter plot
-ggplot(data, aes(x = unemployment, y = remittance_inflow)) +
+# Scatter plot comparing remittance inflow with unemployment
+plot2 <- ggplot(data = merged_data, aes(x = remittance_inflow, y = unemployment)) +
   geom_point() +
   labs(x = "Unemployment", y = "Remittance Inflow") +
-  ggtitle("Relationship between Unemployment and Remittance Inflows")
+  ggtitle("Remittance Inflow vs. Unemployment")
+
+# Scatter plot comparing remittance inflow with GC_formation
+plot3 <- ggplot(data = merged_data, aes(x =remittance_inflow, y = GC_formation)) +
+  geom_point() +
+  labs(x = "Gross Capital Formation", y = "Remittance Inflow") +
+  ggtitle("Remittance Inflow vs. Gross Capital Formation")
+
+# Scatter plot comparing remittance inflow with eco_growth
+plot4 <- ggplot(data = merged_data, aes(x = remittance_inflow, y = eco_growth)) +
+  geom_point() +
+  labs(x = "Economic Growth", y = "Remittance Inflow") +
+  ggtitle("Remittance Inflow vs. Economic Growth")
+
+# Combine the plots into a grid layout
+grid.arrange(plot1, plot2, plot3, plot4, nrow = 2, ncol = 2)
 
 
 ```
-- Are there any significant differences in remittance inflows among countries or regions? Can we compare and contrast the remittance patterns of different countries based on the variables mentioned?
+
+
+Machine Learning Parts
+```{r Task4}
+set.seed(100)
+```
 ```{r}
-data <- merged_data %>% filter(complete.cases(.))
-merged_data
-
-# Explore the data
-head(data)  # Display the first few rows of the data
-summary(data)  # Get summary statistics of the variables
-
-# Generate a box plot to compare remittance inflows among countries or regions
-ggplot(data, aes(x = Country_Name, y = remittance_inflow)) +
-  geom_boxplot() +
-  labs(x = "Country or Region", y = "Remittance Inflow") +
-  ggtitle("Comparison of Remittance Inflows by Country or Region")
+trainRowNumbers <- createDataPartition(merged_data$unemployment, p = 0.8, list = FALSE)
 ```
+```{r}
+trainData <- merged_data[trainRowNumbers, ]
+```
+```{r}
+testData <- merged_data[-trainRowNumbers, ]
+```
+```{r}
+# Define predictors and target variable
+x <- trainData[, c("year", "unemployment", "remittance_inflow")]
+y <- trainData$unemployment
 
+```
+```{r}
+# Train the machine learning model
+set.seed(100)
+model_rf <- train(unemployment ~ ., data = trainData, method = "rf", tuneLength = 5)
+model_rf
+
+```
 
